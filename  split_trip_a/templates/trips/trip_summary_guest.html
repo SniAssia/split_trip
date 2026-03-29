@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ trip.name }} – Résumé SplitTrip</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    body { background: #f1f5f9; }
+    .card { border: none; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .brand { font-weight: 800; font-size: 1.4rem; letter-spacing: -0.5px; color: #1e293b; }
+    .brand span { color: #2563eb; }
+  </style>
+</head>
+<body>
+<nav class="navbar navbar-light bg-white shadow-sm mb-4">
+  <div class="container">
+    <span class="brand">✈️ Split<span>Trip</span></span>
+    <span class="badge bg-secondary">Vue lecture seule</span>
+  </div>
+</nav>
+
+<div class="container pb-5">
+  <div class="mb-4">
+    <h2 class="fw-bold">{{ trip.name }}</h2>
+    <p class="text-muted">
+      <i class="fa fa-calendar me-1"></i>{{ trip.start_date|date:"d M Y" }} → {{ trip.end_date|date:"d M Y" }}
+      &nbsp;·&nbsp; {{ trip.currency }}
+    </p>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card p-3 text-center">
+        <div class="fw-bold fs-4">{{ total_expenses|floatformat:2 }}</div>
+        <div class="text-muted small">{{ trip.currency }} dépensé</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card p-3 text-center">
+        <div class="fw-bold fs-4">{{ expenses|length }}</div>
+        <div class="text-muted small">Dépenses</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-md-7">
+      <div class="card">
+        <div class="card-header fw-semibold">Dépenses</div>
+        <div class="list-group list-group-flush">
+          {% for expense in expenses %}
+          <div class="list-group-item px-4 py-3">
+            <div class="d-flex justify-content-between">
+              <div>
+                <div class="fw-semibold">{{ expense.title }}</div>
+                <div class="text-muted small">{{ expense.paid_by.get_full_name|default:expense.paid_by.username }} · {{ expense.date|date:"d M" }}</div>
+              </div>
+              <div class="fw-bold">{{ expense.amount|floatformat:2 }} {{ trip.currency }}</div>
+            </div>
+          </div>
+          {% empty %}
+          <div class="list-group-item text-center text-muted py-4">Aucune dépense.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-5">
+      <div class="card mb-4">
+        <div class="card-header fw-semibold">Soldes</div>
+        <div class="list-group list-group-flush">
+          {% for b in balances %}
+          <div class="list-group-item px-4 py-2 d-flex justify-content-between">
+            <span>{{ b.user.get_full_name|default:b.user.username }}</span>
+            <strong class="{% if b.balance > 0 %}text-success{% elif b.balance < 0 %}text-danger{% endif %}">
+              {{ b.balance|floatformat:2 }} {{ trip.currency }}
+            </strong>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header fw-semibold">Règlements suggérés</div>
+        <div class="card-body">
+          {% for s in optimized_settlements %}
+          <div class="mb-2 p-2 bg-light rounded">
+            <strong>{{ s.payer.get_full_name|default:s.payer.username }}</strong>
+            → <strong>{{ s.receiver.get_full_name|default:s.receiver.username }}</strong>
+            <span class="float-end text-primary fw-bold">{{ s.amount|floatformat:2 }} {{ trip.currency }}</span>
+          </div>
+          {% empty %}
+          <p class="text-success mb-0"><i class="fa fa-check-circle me-1"></i>Tous les comptes sont soldés !</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="text-center mt-5">
+    <p class="text-muted">Rejoignez SplitTrip pour gérer vos voyages en groupe</p>
+    <a href="{% url 'register' %}" class="btn btn-primary">Créer un compte gratuit</a>
+  </div>
+</div>
+</body>
+</html>

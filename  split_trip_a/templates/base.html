@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}SplitTrip{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --sidebar-bg: #1e293b;
+      --sidebar-text: #94a3b8;
+      --sidebar-active: #2563eb;
+    }
+    body { background: #f1f5f9; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+    /* Navbar */
+    .navbar-brand { font-weight: 700; font-size: 1.4rem; letter-spacing: -0.5px; }
+    .navbar-brand span { color: #60a5fa; }
+
+    /* Cards */
+    .card { border: none; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .card-header { background: white; border-bottom: 1px solid #e2e8f0; font-weight: 600; }
+
+    /* Badges */
+    .balance-positive { color: #16a34a; font-weight: 700; }
+    .balance-negative { color: #dc2626; font-weight: 700; }
+    .balance-neutral { color: #64748b; font-weight: 600; }
+
+    /* Category badges */
+    .cat-food { background: #fef3c7; color: #92400e; }
+    .cat-transport { background: #dbeafe; color: #1e40af; }
+    .cat-accommodation { background: #ede9fe; color: #4c1d95; }
+    .cat-activities { background: #d1fae5; color: #065f46; }
+    .cat-shopping { background: #fce7f3; color: #9d174d; }
+    .cat-health { background: #fee2e2; color: #991b1b; }
+    .cat-other { background: #f3f4f6; color: #374151; }
+
+    /* Settlement chip */
+    .settlement-chip {
+      background: linear-gradient(135deg, #dbeafe, #ede9fe);
+      border-radius: 50px;
+      padding: 8px 16px;
+      font-size: .9rem;
+    }
+    .avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: .85rem; color: white;
+    }
+    .btn-primary { background: var(--primary); border-color: var(--primary); }
+    .btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+
+    /* Alert */
+    .alert { border: none; border-radius: 10px; }
+
+    /* Stat card */
+    .stat-card { border-left: 4px solid var(--primary); }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+{% if user.is_authenticated %}
+<nav class="navbar navbar-expand-lg navbar-dark" style="background:#1e293b;">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{% url 'dashboard' %}">✈️ Split<span>Trip</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navmain">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navmain">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'dashboard' %}"><i class="fa fa-home me-1"></i>Tableau de bord</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'trip_create' %}"><i class="fa fa-plus me-1"></i>Nouveau voyage</a>
+        </li>
+      </ul>
+      <ul class="navbar-nav">
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+            <i class="fa fa-user-circle me-1"></i>{{ user.get_full_name|default:user.username }}
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="/admin/"><i class="fa fa-tools me-2"></i>Admin</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button class="dropdown-item text-danger" type="submit">
+                  <i class="fa fa-sign-out-alt me-2"></i>Déconnexion
+                </button>
+              </form>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+{% endif %}
+
+<div class="container-fluid py-4">
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show mx-3" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+
+  {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

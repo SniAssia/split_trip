@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+{% block title %}{{ trip.name }} – SplitTrip{% endblock %}
+
+{% block extra_css %}
+<style>
+  .nav-tabs .nav-link { color: #64748b; font-weight: 500; }
+  .nav-tabs .nav-link.active { color: #2563eb; font-weight: 700; border-bottom: 2px solid #2563eb; }
+  .expense-row:hover { background: #f8fafc; }
+  .member-avatar { width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:.9rem; }
+  .colors { --c0:#2563eb;--c1:#7c3aed;--c2:#db2777;--c3:#ea580c;--c4:#16a34a;--c5:#0891b2; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container colors">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-3">
+      <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary"><i class="fa fa-arrow-left"></i></a>
+      <div>
+        <h2 class="fw-bold mb-0">{{ trip.name }}</h2>
+        <span class="text-muted small">
+          <i class="fa fa-calendar me-1"></i>{{ trip.start_date|date:"d M Y" }} → {{ trip.end_date|date:"d M Y" }}
+          &nbsp;·&nbsp; {{ trip.currency }}
+        </span>
+      </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      {% if membership.role == 'organizer' %}
+        <a href="{% url 'trip_edit' trip.pk %}" class="btn btn-outline-secondary btn-sm"><i class="fa fa-edit me-1"></i>Modifier</a>
+      {% endif %}
+      <a href="{% url 'expense_add' trip.pk %}" class="btn btn-primary btn-sm"><i class="fa fa-plus me-1"></i>Dépense</a>
+    </div>
+  </div>
+
+  <!-- Stats row -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card stat-card p-3">
+        <div class="text-muted small">Total dépensé</div>
+        <div class="fw-bold fs-5">{{ total_expenses|floatformat:2 }} {{ trip.currency }}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card p-3" style="border-left:4px solid #7c3aed;">
+        <div class="text-muted small">Membres</div>
+        <div class="fw-bold fs-5">{{ members|length }}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card p-3" style="border-left:4px solid #db2777;">
+        <div class="text-muted small">Dépenses</div>
+        <div class="fw-bold fs-5">{{ expenses|length }}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card p-3" style="border-left:4px solid {% if user_balance >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
+        <div class="text-muted small">Mon solde</div>
+        <div class="fw-bold fs-5 {% if user_balance > 0 %}text-success{% elif user_balance < 0 %}text-danger{% endif %}">
+          {{ user_balance|floatformat:2 }} {{ trip.currency }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <ul class="nav nav-tabs mb-4" id="tripTabs">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-expenses">🧾 Dépenses</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-balances">⚖️ Soldes</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-settlements">💸 Règlements</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-members">👥 Membres</a></li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- EXPENSES TAB -->
+    <div class="tab-pane fade show active" id="tab-expenses">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Toutes les dépenses</span>
+          <a href="{% url 'expense_add' trip.pk %}" class="btn btn-sm btn-primary"><i class="fa fa-plus me-1"></i>Ajouter</a>
+        </div>
+        {% if expenses %}
+        <div class="list-group list-group-flush">
+          {% for expense in expenses %}
+          <div class="list-group-item expense-row px-4 py-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="d-flex align-items-center gap-3">
+                <span style="font-size:1.5rem;">{{ expense.get_category_display_icon }}</span>
+                <div>
+                  <div class="fw-semibold">{{ expense.title }}</div>
+                  <div class="text-muted small">
+                    Payé par <strong>{{ expense.paid_by.get_full_name|default:expense.paid_by.username }}</strong>
+                    · {{ expense.date|date:"d M" }}
+                    · <span class="badge cat-{{ expense.category }}">{{ expense.get_category_display }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="d-flex align-items-center gap-3">
+                <div class="text-end">
+                  <div class="fw-bold">{{ expense.amount|floatformat:2 }} {{ trip.currency }}</div>
+                  <div class="text-muted small">{{ expense.get_split_type_display }}</div>
+                </div>
+                {% if expense.paid_by == user or membership.role == 'organizer' %}
+                <form method="post" action="{% url 'expense_delete' trip.pk expense.pk %}"
+                      onsubmit="return confirm('Supprimer cette dépense ?')">
+                  {% csrf_token %}
+                  <button class="btn btn-outline-danger btn-sm"><i class="fa fa-trash"></i></button>
+                </form>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <div style="font-size:3rem;">🧾</div>
+          <p class="mt-2">Aucune dépense pour l'instant.</p>
+          <a href="{% url 'expense_add' trip.pk %}" class="btn btn-primary btn-sm">Ajouter la première dépense</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- BALANCES TAB -->
+    <div class="tab-pane fade" id="tab-balances">
+      <div class="card">
+        <div class="card-header">Soldes de chaque membre</div>
+        <div class="list-group list-group-flush">
+          {% for b in balances %}
+          <div class="list-group-item px-4 py-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="d-flex align-items-center gap-3">
+                <div class="member-avatar" style="background:#2563eb;">
+                  {{ b.user.first_name.0|default:b.user.username.0|upper }}
+                </div>
+                <div>
+                  <div class="fw-semibold">{{ b.user.get_full_name|default:b.user.username }}</div>
+                  <div class="text-muted small">{{ b.user.email }}</div>
+                </div>
+              </div>
+              <div class="text-end">
+                {% if b.balance > 0 %}
+                  <span class="badge bg-success fs-6">+{{ b.balance|floatformat:2 }} {{ trip.currency }}</span>
+                  <div class="text-muted small">est remboursé</div>
+                {% elif b.balance < 0 %}
+                  <span class="badge bg-danger fs-6">{{ b.balance|floatformat:2 }} {{ trip.currency }}</span>
+                  <div class="text-muted small">doit de l'argent</div>
+                {% else %}
+                  <span class="badge bg-secondary fs-6">0.00 {{ trip.currency }}</span>
+                  <div class="text-muted small">équilibré</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTLEMENTS TAB -->
+    <div class="tab-pane fade" id="tab-settlements">
+      <div class="row g-4">
+        <div class="col-lg-7">
+          <div class="card">
+            <div class="card-header">Plan de règlement optimisé</div>
+            <div class="card-body">
+              {% if optimized_settlements %}
+                <p class="text-muted small mb-3">
+                  <i class="fa fa-magic me-1"></i>
+                  {{ optimized_settlements|length }} transaction(s) pour solder tous les comptes.
+                </p>
+                {% for s in optimized_settlements %}
+                <div class="settlement-chip mb-3 d-flex align-items-center justify-content-between">
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="member-avatar" style="background:#dc2626;width:32px;height:32px;font-size:.75rem;">
+                      {{ s.payer.first_name.0|default:s.payer.username.0|upper }}
+                    </div>
+                    <strong>{{ s.payer.get_full_name|default:s.payer.username }}</strong>
+                  </div>
+                  <div class="text-center px-2">
+                    <div class="text-muted small">doit payer</div>
+                    <div class="fw-bold text-primary">{{ s.amount|floatformat:2 }} {{ trip.currency }}</div>
+                    <div class="text-muted" style="font-size:.8rem;">→</div>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <strong>{{ s.receiver.get_full_name|default:s.receiver.username }}</strong>
+                    <div class="member-avatar" style="background:#16a34a;width:32px;height:32px;font-size:.75rem;">
+                      {{ s.receiver.first_name.0|default:s.receiver.username.0|upper }}
+                    </div>
+                  </div>
+                </div>
+                {% endfor %}
+              {% else %}
+                <div class="text-center py-4 text-muted">
+                  <div style="font-size:3rem;">✅</div>
+                  <p class="mt-2 fw-semibold">Tous les comptes sont soldés !</p>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="card">
+            <div class="card-header">Enregistrer un paiement</div>
+            <div class="card-body">
+              <form method="post" action="{% url 'record_settlement' trip.pk %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Payeur</label>
+                  <select name="payer" class="form-select">
+                    {% for m in members %}
+                    <option value="{{ m.pk }}">{{ m.get_full_name|default:m.username }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Destinataire</label>
+                  <select name="receiver" class="form-select">
+                    {% for m in members %}
+                    <option value="{{ m.pk }}">{{ m.get_full_name|default:m.username }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Montant ({{ trip.currency }})</label>
+                  <input type="number" name="amount" class="form-control" step="0.01" min="0.01">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Note (optionnel)</label>
+                  <textarea name="notes" class="form-control" rows="2"></textarea>
+                </div>
+                <button type="submit" class="btn btn-success w-100">
+                  <i class="fa fa-check me-2"></i>Confirmer le paiement
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MEMBERS TAB -->
+    <div class="tab-pane fade" id="tab-members">
+      <div class="row g-4">
+        <div class="col-lg-7">
+          <div class="card">
+            <div class="card-header">Membres du voyage</div>
+            <div class="list-group list-group-flush">
+              {% for m in members %}
+              {% with ms=trip.memberships.all %}
+              <div class="list-group-item px-4 py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="d-flex align-items-center gap-3">
+                    <div class="member-avatar" style="background:#7c3aed;">
+                      {{ m.first_name.0|default:m.username.0|upper }}
+                    </div>
+                    <div>
+                      <div class="fw-semibold">{{ m.get_full_name|default:m.username }}</div>
+                      <div class="text-muted small">{{ m.email }}</div>
+                    </div>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    {% for mem in ms %}{% if mem.user == m %}
+                      {% if mem.role == 'organizer' %}
+                        <span class="badge bg-primary">Organisateur</span>
+                      {% else %}
+                        <span class="badge bg-secondary">Membre</span>
+                      {% endif %}
+                    {% endif %}{% endfor %}
+                    {% if membership.role == 'organizer' and m != user %}
+                    <form method="post" action="{% url 'remove_member' trip.pk m.pk %}"
+                          onsubmit="return confirm('Retirer ce membre ?')">
+                      {% csrf_token %}
+                      <button class="btn btn-outline-danger btn-sm"><i class="fa fa-times"></i></button>
+                    </form>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              {% endwith %}
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          {% if membership.role == 'organizer' %}
+          <div class="card mb-3">
+            <div class="card-header">Inviter par email</div>
+            <div class="card-body">
+              <form method="post" action="{% url 'invite_member' trip.pk %}">
+                {% csrf_token %}
+                <div class="input-group">
+                  <input type="email" name="email" class="form-control" placeholder="email@exemple.com">
+                  <button class="btn btn-primary" type="submit"><i class="fa fa-paper-plane"></i></button>
+                </div>
+              </form>
+            </div>
+          </div>
+          {% endif %}
+          <div class="card">
+            <div class="card-header">Lien d'invitation</div>
+            <div class="card-body">
+              <p class="text-muted small">Partagez ce lien pour inviter des membres :</p>
+              <div class="input-group">
+                <input type="text" id="inviteLink" class="form-control form-control-sm"
+                       value="{{ request.scheme }}://{{ request.get_host }}{{ trip.get_invite_link }}" readonly>
+                <button class="btn btn-outline-secondary btn-sm" onclick="copyLink()">
+                  <i class="fa fa-copy"></i>
+                </button>
+              </div>
+              <div class="mt-2">
+                <a href="{% url 'trip_summary_guest' trip.invite_token %}" target="_blank" class="btn btn-outline-info btn-sm w-100">
+                  <i class="fa fa-eye me-1"></i>Vue invité (lecture seule)
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end tab-content -->
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyLink() {
+  const input = document.getElementById('inviteLink');
+  navigator.clipboard.writeText(input.value).then(() => {
+    alert('Lien copié !');
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block title %}{{ action }} un voyage – SplitTrip{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      <div class="d-flex align-items-center mb-4">
+        <a href="{% if trip %}{% url 'trip_detail' trip.pk %}{% else %}{% url 'dashboard' %}{% endif %}" class="btn btn-outline-secondary me-3">
+          <i class="fa fa-arrow-left"></i>
+        </a>
+        <h3 class="fw-bold mb-0">{{ action }} un voyage</h3>
+      </div>
+
+      <div class="card">
+        <div class="card-body p-4">
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="mb-3">
+              <label class="form-label fw-semibold">{{ field.label }}</label>
+              {% if field.field.widget.input_type == 'select' %}
+                <select name="{{ field.html_name }}" class="form-select {% if field.errors %}is-invalid{% endif %}">
+                  {% for val, label in field.field.choices %}
+                    <option value="{{ val }}" {% if field.value == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              {% elif field.field.widget.input_type == 'textarea' %}
+                <textarea name="{{ field.html_name }}" class="form-control {% if field.errors %}is-invalid{% endif %}" rows="3">{{ field.value|default:'' }}</textarea>
+              {% elif field.field.widget.input_type == 'file' %}
+                <input type="file" name="{{ field.html_name }}" class="form-control {% if field.errors %}is-invalid{% endif %}">
+              {% else %}
+                <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}"
+                       class="form-control {% if field.errors %}is-invalid{% endif %}"
+                       value="{{ field.value|default:'' }}">
+              {% endif %}
+              {% for error in field.errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+              {% endfor %}
+              {% if field.help_text %}
+                <div class="form-text text-muted">{{ field.help_text }}</div>
+              {% endif %}
+            </div>
+            {% endfor %}
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
+            <div class="d-flex gap-2 mt-4">
+              <button type="submit" class="btn btn-primary px-4">
+                <i class="fa fa-save me-2"></i>{{ action }}
+              </button>
+              <a href="{% if trip %}{% url 'trip_detail' trip.pk %}{% else %}{% url 'dashboard' %}{% endif %}" class="btn btn-outline-secondary">
+                Annuler
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

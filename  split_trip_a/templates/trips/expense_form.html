@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+{% block title %}Ajouter une dépense – {{ trip.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .split-section { display: none; }
+  .split-section.active { display: block; }
+  .participant-check { cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      <div class="d-flex align-items-center mb-4">
+        <a href="{% url 'trip_detail' trip.pk %}" class="btn btn-outline-secondary me-3">
+          <i class="fa fa-arrow-left"></i>
+        </a>
+        <div>
+          <h3 class="fw-bold mb-0">Ajouter une dépense</h3>
+          <p class="text-muted mb-0 small">{{ trip.name }}</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body p-4">
+          <form method="post" enctype="multipart/form-data" id="expenseForm">
+            {% csrf_token %}
+            <input type="hidden" name="split_data" id="split_data">
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-8">
+                <label class="form-label fw-semibold">Description *</label>
+                <input type="text" name="title" class="form-control" placeholder="Ex: Dîner au restaurant" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Montant ({{ trip.currency }}) *</label>
+                <input type="number" name="amount" id="amount" class="form-control" step="0.01" min="0.01" required>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Catégorie</label>
+                <select name="category" class="form-select">
+                  <option value="food">🍽️ Nourriture</option>
+                  <option value="transport">🚗 Transport</option>
+                  <option value="accommodation">🏨 Hébergement</option>
+                  <option value="activities">🎭 Activités</option>
+                  <option value="shopping">🛍️ Shopping</option>
+                  <option value="health">💊 Santé</option>
+                  <option value="other">📦 Autre</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Date</label>
+                <input type="date" name="date" class="form-control" value="{{ today }}">
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Type de répartition</label>
+              <div class="btn-group w-100" id="splitTypeGroup">
+                <input type="radio" class="btn-check" name="split_type" value="equal" id="st-equal" checked>
+                <label class="btn btn-outline-primary" for="st-equal">⚖️ Égal</label>
+                <input type="radio" class="btn-check" name="split_type" value="percentage" id="st-pct">
+                <label class="btn btn-outline-primary" for="st-pct">📊 Pourcentage</label>
+                <input type="radio" class="btn-check" name="split_type" value="exact" id="st-exact">
+                <label class="btn btn-outline-primary" for="st-exact">🔢 Montant exact</label>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Participants</label>
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  {% for member in members %}
+                  <div class="form-check">
+                    <input class="form-check-input participant-check" type="checkbox"
+                           name="participants" value="{{ member.pk }}"
+                           id="p{{ member.pk }}" checked
+                           data-username="{{ member.get_full_name|default:member.username }}"
+                           onchange="updateSplitInputs()">
+                    <label class="form-check-label" for="p{{ member.pk }}">
+                      {{ member.get_full_name|default:member.username }}
+                      {% if member == request.user %}<span class="badge bg-primary ms-1">Moi</span>{% endif %}
+                    </label>
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <!-- Percentage split -->
+            <div class="split-section mb-3" id="pct-section">
+              <label class="form-label fw-semibold">Pourcentages <span class="text-muted small" id="pct-total">(total: 0%)</span></label>
+              <div id="pct-inputs"></div>
+            </div>
+
+            <!-- Exact split -->
+            <div class="split-section mb-3" id="exact-section">
+              <label class="form-label fw-semibold">Montants exacts <span class="text-muted small" id="exact-total"></span></label>
+              <div id="exact-inputs"></div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Reçu (optionnel)</label>
+              <input type="file" name="receipt" class="form-control" accept="image/*">
+            </div>
+            <div class="mb-4">
+              <label class="form-label fw-semibold">Notes</label>
+              <textarea name="notes" class="form-control" rows="2"></textarea>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary px-4">
+                <i class="fa fa-save me-2"></i>Enregistrer
+              </button>
+              <a href="{% url 'trip_detail' trip.pk %}" class="btn btn-outline-secondary">Annuler</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const members = [
+  {% for m in members %}
+  { id: {{ m.pk }}, name: "{{ m.get_full_name|default:m.username }}" },
+  {% endfor %}
+];
+
+function getCheckedParticipants() {
+  return members.filter(m => {
+    const cb = document.getElementById('p' + m.id);
+    return cb && cb.checked;
+  });
+}
+
+function getSplitType() {
+  return document.querySelector('input[name="split_type"]:checked').value;
+}
+
+function updateSplitInputs() {
+  const type = getSplitType();
+  document.getElementById('pct-section').classList.toggle('active', type === 'percentage');
+  document.getElementById('exact-section').classList.toggle('active', type === 'exact');
+
+  const participants = getCheckedParticipants();
+  const count = participants.length;
+
+  if (type === 'percentage') {
+    const pct = count > 0 ? (100 / count).toFixed(2) : 0;
+    let html = '';
+    participants.forEach(p => {
+      html += `<div class="input-group mb-2">
+        <span class="input-group-text" style="min-width:140px;">${p.name}</span>
+        <input type="number" class="form-control pct-input" data-uid="${p.id}"
+               value="${pct}" min="0" max="100" step="0.01" oninput="updatePctTotal()">
+        <span class="input-group-text">%</span>
+      </div>`;
+    });
+    document.getElementById('pct-inputs').innerHTML = html;
+    updatePctTotal();
+  }
+
+  if (type === 'exact') {
+    const amount = parseFloat(document.getElementById('amount').value) || 0;
+    const share = count > 0 ? (amount / count).toFixed(2) : 0;
+    let html = '';
+    participants.forEach(p => {
+      html += `<div class="input-group mb-2">
+        <span class="input-group-text" style="min-width:140px;">${p.name}</span>
+        <input type="number" class="form-control exact-input" data-uid="${p.id}"
+               value="${share}" min="0" step="0.01" oninput="updateExactTotal()">
+      </div>`;
+    });
+    document.getElementById('exact-inputs').innerHTML = html;
+    updateExactTotal();
+  }
+}
+
+function updatePctTotal() {
+  let total = 0;
+  document.querySelectorAll('.pct-input').forEach(i => total += parseFloat(i.value) || 0);
+  const el = document.getElementById('pct-total');
+  el.textContent = `(total: ${total.toFixed(1)}%)`;
+  el.style.color = Math.abs(total - 100) < 0.1 ? '#16a34a' : '#dc2626';
+}
+
+function updateExactTotal() {
+  const amount = parseFloat(document.getElementById('amount').value) || 0;
+  let total = 0;
+  document.querySelectorAll('.exact-input').forEach(i => total += parseFloat(i.value) || 0);
+  const el = document.getElementById('exact-total');
+  el.textContent = `(total: ${total.toFixed(2)} / ${amount.toFixed(2)})`;
+  el.style.color = Math.abs(total - amount) < 0.01 ? '#16a34a' : '#dc2626';
+}
+
+document.querySelectorAll('input[name="split_type"]').forEach(r => {
+  r.addEventListener('change', updateSplitInputs);
+});
+
+document.getElementById('amount').addEventListener('input', updateSplitInputs);
+
+document.getElementById('expenseForm').addEventListener('submit', function(e) {
+  const type = getSplitType();
+  let splitData = [];
+  if (type === 'percentage') {
+    document.querySelectorAll('.pct-input').forEach(i => {
+      splitData.push({ user_id: parseInt(i.dataset.uid), percentage: parseFloat(i.value) });
+    });
+  } else if (type === 'exact') {
+    document.querySelectorAll('.exact-input').forEach(i => {
+      splitData.push({ user_id: parseInt(i.dataset.uid), amount: parseFloat(i.value) });
+    });
+  }
+  document.getElementById('split_data').value = JSON.stringify(splitData);
+});
+
+// Set today's date
+document.querySelector('input[name="date"]').valueAsDate = new Date();
+</script>
+{% endblock %}
